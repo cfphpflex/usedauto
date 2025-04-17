@@ -336,7 +336,7 @@ class VehiclePricePredictor:
 def load_and_explore_data():
     """Load and clean the dataset"""
     # Load data with a reasonable limit
-    df = pd.read_csv('data/vehicles.csv', nrows=200000)
+    df = pd.read_csv('../data/vehicles.csv', nrows=200000)
     
     # Keep only relevant columns
     columns_to_keep = ['year', 'manufacturer', 'model', 'condition', 'odometer', 
