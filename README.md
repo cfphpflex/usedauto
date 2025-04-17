@@ -24,7 +24,7 @@ Analysis of large used cars dataset from Kaggle to determine key factors influen
 - Key metrics: price prediction accuracy and feature importance
 
 ### 2. Data Understanding
-- Dataset: 426,000 used car records (sampled from 3M)
+- Dataset: large used car records (sampled from 3M)
 - Key features include:
   - Vehicle specifications
   - Mileage and age
@@ -107,7 +107,7 @@ python src/gui.py
 - pandas
 - numpy
 - scikit-learn
-- lightgbm
+- RandomForest
 - joblib
 - pickle
 
@@ -176,20 +176,16 @@ class VehiclePricePredictor:
   - Feature name preservation
 
 ### 2. Model Training
-The model uses LightGBM with optimized parameters:
-
+The model uses RandomForest with the following parameters:
 ```python
-params = {
-    'objective': 'regression',
-    'metric': 'mae',
-    'boosting_type': 'gbdt',
-    'num_leaves': 31,
-    'learning_rate': 0.05,
-    'feature_fraction': 0.9,
-    'bagging_fraction': 0.8,
-    'bagging_freq': 5,
-    'verbose': -1
-}
+model = RandomForestRegressor(
+    n_estimators=100,
+    max_depth=None,
+    min_samples_split=2,
+    min_samples_leaf=1,
+    random_state=42,
+    n_jobs=-1
+)
 ```
 
 #### Training Process:
@@ -229,7 +225,7 @@ The prediction process follows these steps:
 
 ### 3. Model Persistence
 The model saves three key artifacts:
-1. `model.joblib`: The trained LightGBM model
+1. `model.joblib`: The trained RandomForest model
 2. `scaler.pkl`: The StandardScaler for feature normalization
 3. `feature_info.json`: Feature names and category mappings
 
@@ -260,7 +256,6 @@ The model is evaluated using:
 ## Dependencies
 - pandas
 - numpy
-- lightgbm
 - scikit-learn
 - joblib
 - pickle
