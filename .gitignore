@@ -4,6 +4,8 @@ __pycache__/
 *$py.class
 *.so
 .Python
+data/ 
+data/vehicles.csv 
 build/
 develop-eggs/
 dist/
@@ -103,3 +105,6 @@ cover/
 *.swp
 *.swo
 *~ 
+
+# Large files (>100MB)
+*.[0-9][0-9][0-9]m 
