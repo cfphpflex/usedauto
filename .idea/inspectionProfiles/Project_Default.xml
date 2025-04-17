@@ -1,0 +1,31 @@
+<component name="InspectionProjectProfileManager">
+  <profile version="1.0">
+    <option name="myName" value="Project Default" />
+    <inspection_tool class="PyInterpreterInspection" enabled="false" level="WARNING" enabled_by_default="false" />
+    <inspection_tool class="PyPackageRequirementsInspection" enabled="true" level="WARNING" enabled_by_default="true">
+      <option name="ignoredPackages">
+        <value>
+          <list size="17">
+            <item index="0" class="java.lang.String" itemvalue="os" />
+            <item index="1" class="java.lang.String" itemvalue="requests" />
+            <item index="2" class="java.lang.String" itemvalue="subprocess" />
+            <item index="3" class="java.lang.String" itemvalue="sys" />
+            <item index="4" class="java.lang.String" itemvalue="argparse" />
+            <item index="5" class="java.lang.String" itemvalue="simplejson" />
+            <item index="6" class="java.lang.String" itemvalue="datetime" />
+            <item index="7" class="java.lang.String" itemvalue="dotenv" />
+            <item index="8" class="java.lang.String" itemvalue="inspect" />
+            <item index="9" class="java.lang.String" itemvalue="json" />
+            <item index="10" class="java.lang.String" itemvalue="logging" />
+            <item index="11" class="java.lang.String" itemvalue="pytz" />
+            <item index="12" class="java.lang.String" itemvalue="time" />
+            <item index="13" class="java.lang.String" itemvalue="math" />
+            <item index="14" class="java.lang.String" itemvalue="gc" />
+            <item index="15" class="java.lang.String" itemvalue="traceback" />
+            <item index="16" class="java.lang.String" itemvalue="alpaca_trade_api" />
+          </list>
+        </value>
+      </option>
+    </inspection_tool>
+  </profile>
+</component>
