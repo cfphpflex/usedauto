@@ -8,23 +8,174 @@ Original file is located at
 
 ## **Getting started**
 
-**Business Objective:**
+# Advanced Vehicle Price Prediction Model
 
-goal is to understand what factors make a car more or less expensive. As a result of your analysis, you should provide clear recommendations to your client—a used car dealership—as to what consumers value in a used car.
+## Overview
+This project implements an advanced machine learning model for predicting used vehicle prices using RandomForest,  GridSearch... . The model incorporates sophisticated feature engineering, proper data preprocessing, and robust prediction pipelines.
 
-**Problem Statement:** Determine which features are most strongly associated with what makes a car more or less expensive.
- 
+## Model Architecture
+
+### 1. Data Preprocessing Pipeline
+The model uses a comprehensive preprocessing pipeline implemented in the `VehiclePricePredictor` class:
+
+```python
+class VehiclePricePredictor:
+    def __init__(self):
+        self.model = None
+        self.scaler = None
+        self.feature_info = None
+        self.feature_names = None
+        self.category_mappings = {}
+```
+
+#### Key Preprocessing Steps:
+- **Data Cleaning** (`clean_data()`):
+  - Handles missing values
+  - Removes outliers (prices < $100 or > $100,000)
+  - Fills missing odometer readings with mean values
+  - Fills missing years with median values
+  - Handles missing categorical values with 'unknown'
+
+- **Feature Engineering** (`engineer_features()`):
+  - Vehicle age calculation (2024 - year)
+  - Miles per year calculation
+  - Price per mile (training only)
+  - Price per year (training only)
+  - Age-mileage interaction features
+
+- **Data Preprocessing** (`preprocess_data()`):
+  - Categorical variable standardization
+  - One-hot encoding
+  - Feature scaling
+  - Feature name preservation
+
+### 2. Model Training
+The model uses LightGBM with optimized parameters:
+
+```python
+params = {
+    'objective': 'regression',
+    'metric': 'mae',
+    'boosting_type': 'gbdt',
+    'num_leaves': 31,
+    'learning_rate': 0.05,
+    'feature_fraction': 0.9,
+    'bagging_fraction': 0.8,
+    'bagging_freq': 5,
+    'verbose': -1
+}
+```
+
+#### Training Process:
+1. Data loading and cleaning
+2. Feature engineering
+3. Train/validation split
+4. Model training with early stopping
+5. Model evaluation using MAE and R² metrics
+6. Artifact saving (model, scaler, feature info)
+
+### 3. Prediction Pipeline
+The prediction process follows these steps:
+1. Input data validation
+2. Feature preprocessing
+3. Feature engineering
+4. Model prediction
+5. Price output
+
+## Key Features
+
+### 1. Robust Feature Engineering
+- **Temporal Features**:
+  - Vehicle age
+  - Miles per year
+  - Price per year (training)
+  - Price per mile (training)
+
+- **Interaction Features**:
+  - Age-mileage interaction
+  - Manufacturer-model combinations
+
+### 2. Categorical Variable Handling
+- Standardized lowercase conversion
+- One-hot encoding
+- Category mapping preservation
+- Unknown category handling
+
+### 3. Model Persistence
+The model saves three key artifacts:
+1. `model.joblib`: The trained LightGBM model
+2. `scaler.pkl`: The StandardScaler for feature normalization
+3. `feature_info.json`: Feature names and category mappings
+
+## Usage
+
+### Training the Model
+```bash
+python src/improved_model.py
+```
+
+### Making Predictions
+```bash
+python src/predict.py
+```
+
+### Using the GUI
+```bash
+python src/gui.py
+```
+
+## Performance Metrics
+The model is evaluated using:
+- Mean Absolute Error (MAE)
+- R² Score
+- Validation set performance
+- Cross-validation results
+
+## Dependencies
+- pandas
+- numpy
+- lightgbm
+- scikit-learn
+- joblib
+- pickle
+
+## Future Improvements
+1. Hyperparameter optimization
+2. Additional feature engineering
+3. Ensemble methods
+4. Real-time price updates
+5. Market trend analysis
+"""
+
+import warnings
+import pickle
+import pandas as pd
+import numpy as np
+from datetime import datetime
+from sklearn.model_selection import train_test_split, KFold, cross_val_score, GridSearchCV
+from sklearn.preprocessing import StandardScaler
+from sklearn.ensemble import RandomForestRegressor
+from sklearn.metrics import mean_squared_error
+import joblib
+import json
+import os
+from joblib import dump as joblib_dump
+
+from scipy.stats import chi2_contingency
+
+import os
+from google.colab import files
 
 #file list
-# files = os.listdir('src/')
-# print(files)
+files = os.listdir('/content/')
+print(files)
 
 # upload data csv files, uncomment
-# from google.colab import files
-# uploaded = files.upload()
+from google.colab import files
+uploaded = files.upload()
 
 #load uploaded csv file
-cardata = pd.read_csv('../data/vehicles.csv')
+cardata = pd.read_csv('/content/vehicles.csv.zip')
 # print(cpn.count())
 
 # Explore data
@@ -97,36 +248,28 @@ class VehiclePricePredictor:
         # Calculate interaction features
         df['age_mileage'] = df['age'] * df['odometer']
 
-        # During training, save the feature names and category mappings
-        if is_training:
-            # Get all possible categories for each categorical column
-            self.category_mappings = {}
-            for col in categorical_cols:
-                if col in df.columns:
-                    self.category_mappings[col] = sorted(df[col].unique().tolist())
+        # Get all possible categories for each categorical column
+        self.category_mappings = {}
+        for col in categorical_cols:
+            if col in df.columns:
+                self.category_mappings[col] = sorted(df[col].unique().tolist())
 
-            # Create dummy variables
-            dummies = pd.get_dummies(df[categorical_cols])
-
-            # Combine with numeric features
-            numeric_features = ['year', 'odometer', 'age', 'miles_per_year', 'age_mileage']
-            X = pd.concat([df[numeric_features], dummies], axis=1)
-
-            # Save feature names
-            self.feature_names = list(X.columns)
-
-            # Return features and target
-            y = df['price']
-            return X, y
-
-        # During prediction, ensure we have all the same features as during training
+        # Create dummy variables
         dummies = pd.get_dummies(df[categorical_cols])
 
         # Combine with numeric features
         numeric_features = ['year', 'odometer', 'age', 'miles_per_year', 'age_mileage']
         X = pd.concat([df[numeric_features], dummies], axis=1)
 
-        # Add missing columns with zeros
+        # Save feature names
+        self.feature_names = list(X.columns)
+
+        # During training, return features and target
+        if is_training:
+            y = df['price']
+            return X, y
+
+        # During prediction, ensure we have all the same features as during training
         for col in self.feature_names:
             if col not in X.columns:
                 X[col] = 0
@@ -136,99 +279,70 @@ class VehiclePricePredictor:
 
         return X
 
-    def train(self, data_path, nrows=None):
-        """Train the model with improved feature engineering"""
-        print("Loading and preparing data...")
-        df = pd.read_csv(data_path, nrows=nrows)
+    def train(self, data):
+        """Train the model and save artifacts"""
+        try:
+            print("Starting model training...")
 
-        print("Cleaning data...")
-        df = self.clean_data(df)
+            # Clean and engineer features
+            data = self.clean_data(data, is_training=True)
+            data = self.engineer_features(data, is_training=True)
 
-        print("Engineering features...")
-        df = self.engineer_features(df)
+            # Prepare features
+            features, target = self.preprocess_data(data, is_training=True)
+            print(f"Prepared features with shape: {features.shape}")
 
-        print("Preprocessing data...")
-        X, y = self.preprocess_data(df)
+            # Split data
+            X_train, X_val, y_train, y_val = train_test_split(
+                features, target, test_size=0.2, random_state=42
+            )
+            print("Split data into train and validation sets")
 
-        # Save feature names and category mappings
-        self.feature_names = list(X.columns)
-        print(f"Number of features: {len(self.feature_names)}")
+            # Scale features
+            self.scaler = StandardScaler()
+            X_train_scaled = self.scaler.fit_transform(X_train)
+            X_val_scaled = self.scaler.transform(X_val)
+            print("Scaled features")
 
-        # Save feature info immediately after preprocessing
-        os.makedirs('models', exist_ok=True)
+            # Train model
+            self.model = RandomForestRegressor(
+                n_estimators=100,
+                max_depth=None,
+                min_samples_split=2,
+                min_samples_leaf=1,
+                random_state=42,
+                n_jobs=-1
+            )
+            self.model.fit(X_train_scaled, y_train)
+            print("Trained model")
 
-        # Save feature names
-        feature_names_path = os.path.join('models', 'feature_names.txt')
-        with open(feature_names_path, 'w') as f:
-            for feature in self.feature_names:
-                f.write(feature + '\n')
-        print(f"Feature names saved to {feature_names_path}")
+            # Evaluate model
+            val_score = np.mean(np.abs(self.model.predict(X_val_scaled) - y_val))
+            print(f"Validation MAE: {val_score:.2f}")
 
-        # Save category mappings
-        category_mappings_path = os.path.join('models', 'category_mappings.txt')
-        with open(category_mappings_path, 'w') as f:
-            for col, categories in self.category_mappings.items():
-                f.write(f"{col}:{','.join(categories)}\n")
-        print(f"Category mappings saved to {category_mappings_path}")
+            # Save feature information
+            feature_info = {
+                'feature_columns': features.columns.tolist(),
+                'numeric_features': ['year', 'odometer', 'age', 'miles_per_year', 'age_mileage'],
+                'categorical_features': [
+                    'manufacturer', 'model', 'condition', 'fuel', 'title_status',
+                    'transmission', 'drive', 'type', 'paint_color'
+                ]
+            }
 
-        # Split data
-        print("Splitting data...")
-        X_train, X_val, y_train, y_val = train_test_split(X, y, test_size=0.2, random_state=42)
+            # Save artifacts
+            os.makedirs('models', exist_ok=True)
+            joblib_dump(self.model, os.path.join('models', 'model.joblib'))
+            joblib_dump(self.scaler, os.path.join('models', 'scaler.joblib'))
+            with open(os.path.join('models', 'feature_info.json'), 'w') as f:
+                json.dump(feature_info, f, indent=4)
+            print("Saved model artifacts")
 
-        # Scale features
-        print("Scaling features...")
-        self.scaler = StandardScaler()
-        X_train_scaled = self.scaler.fit_transform(X_train)
-        X_val_scaled = self.scaler.transform(X_val)
+            return val_score
 
-        # Train model
-        print("Training model...")
-        self.model = lgb.train(
-            {
-                'objective': 'regression',
-                'metric': 'l1',
-                'boosting_type': 'gbdt',
-                'num_leaves': 31,
-                'learning_rate': 0.05,
-                'feature_fraction': 0.9,
-                'bagging_fraction': 0.8,
-                'bagging_freq': 5,
-                'verbose': -1
-            },
-            lgb.Dataset(X_train_scaled, label=y_train),
-            num_boost_round=1000,
-            valid_sets=[lgb.Dataset(X_val_scaled, label=y_val)],
-            callbacks=[
-                lgb.early_stopping(stopping_rounds=50),
-                lgb.log_evaluation(period=100)
-            ]
-        )
-
-        # Save model and artifacts
-        print("Saving model and artifacts...")
-        self.save()
-
-        # Make a test prediction
-        test_vehicle = {
-            'year': 2020,
-            'manufacturer': 'tesla',
-            'model': 'model 3',
-            'condition': 'excellent',
-            'odometer': 25000,
-            'fuel': 'electric',
-            'title_status': 'clean',
-            'transmission': 'automatic',
-            'drive': 'rwd',
-            'type': 'sedan',
-            'paint_color': 'white'
-        }
-        test_df = pd.DataFrame([test_vehicle])
-        test_df = self.clean_data(test_df, is_training=False)
-        test_df = self.engineer_features(test_df, is_training=False)
-        test_X = self.preprocess_data(test_df, is_training=False)
-        test_X_scaled = self.scaler.transform(test_X)
-        test_pred = self.model.predict(test_X_scaled)[0]
-        print(f"\nPredicted price for test vehicle: ${test_pred:,.2f}")
+        except Exception as e:
+            print(f"Error during training: {str(e)}")
+            raise
 
     def predict(self, vehicle):
         """Make a price prediction for a single vehicle"""
@@ -256,68 +370,143 @@ class VehiclePricePredictor:
             # Create directory if it doesn't exist
             os.makedirs(directory, exist_ok=True)
 
-            # Save model using pickle
-            model_path = os.path.join(directory, 'model.pkl')
-            with open(model_path, 'wb') as f:
-                pickle.dump(self.model, f)
+            # Save model
+            model_path = os.path.join(directory, 'model.joblib')
+            joblib.dump(self.model, model_path)
             print(f"Model saved to {model_path}")
 
-            # Save scaler using pickle
-            scaler_path = os.path.join(directory, 'scaler.pkl')
-            with open(scaler_path, 'wb') as f:
-                pickle.dump(self.scaler, f)
+            # Save scaler
+            scaler_path = os.path.join(directory, 'scaler.joblib')
+            joblib.dump(self.scaler, scaler_path)
             print(f"Scaler saved to {scaler_path}")
 
-            # Save feature info with feature names and category mappings
-            feature_info = {
+            # Save feature info for training
+            feature_info_train = {
                 'feature_columns': self.feature_names,
+                'numeric_features': ['year', 'odometer', 'age', 'miles_per_year', 'age_mileage'],
+                'categorical_features': ['manufacturer', 'model', 'condition', 'fuel', 'title_status',
+                                       'transmission', 'drive', 'type', 'paint_color'],
+                'category_mappings': self.category_mappings
+            }
+            feature_info_train_path = os.path.join(directory, 'feature_info_train.joblib')
+            joblib.dump(feature_info_train, feature_info_train_path)
+            print(f"Training feature info saved to {feature_info_train_path}")
+
+            # Save feature info for prediction
+            feature_info = {
+                'feature_names': self.feature_names,
                 'category_mappings': self.category_mappings
             }
 
-            # Print debug info
-            print("\nFeature info to be saved:")
-            print(f"Number of feature columns: {len(self.feature_names)}")
-            print(f"Number of categories: {len(self.category_mappings)}")
-
-            # Save to temporary file first
-            feature_info_path = os.path.join(directory, 'feature_info.json')
-            temp_path = feature_info_path + '.tmp'
-            with open(temp_path, 'w') as f:
-                json.dump(feature_info, f, indent=2)
-
-            # Verify the temporary file was written correctly
-            with open(temp_path, 'r') as f:
-                saved_info = json.load(f)
-                if not saved_info or 'feature_columns' not in saved_info:
-                    raise ValueError("Failed to save feature info correctly")
-
-            # Move temporary file to final location
-            os.replace(temp_path, feature_info_path)
+            # Save as joblib
+            feature_info_path = os.path.join(directory, 'feature_info.joblib')
+            joblib.dump(feature_info, feature_info_path)
             print(f"Feature info saved to {feature_info_path}")
 
-            print(f"\nAll artifacts saved to {directory}/")
+            # Save as JSON for readability
+            feature_info_json_path = os.path.join(directory, 'feature_info.json')
+            with open(feature_info_json_path, 'w') as f:
+                json.dump(feature_info, f, indent=4)
+            print(f"Feature info saved to {feature_info_json_path}")
+
+            print("Model and artifacts saved successfully!")
+            return True
         except Exception as e:
-            print(f"Error saving artifacts: {str(e)}")
-            raise
+            print(f"Error saving model and artifacts: {str(e)}")
+            return False
 
     def load(self, directory='models'):
         """Load the model and artifacts"""
-        # Load model
-        self.model = lgb.Booster(model_file=os.path.join(directory, 'model.txt'))
+        try:
+            # Create directory if it doesn't exist
+            os.makedirs(directory, exist_ok=True)
 
-        # Load scaler
-        self.scaler = joblib.load(os.path.join(directory, 'scaler.joblib'))
+            # Load model
+            model_path = os.path.join(directory, 'model.joblib')
+            if not os.path.exists(model_path):
+                raise FileNotFoundError(f"Model file not found at {model_path}")
+            self.model = joblib.load(model_path)
+            print(f"Model loaded from {model_path}")
 
-        # Load feature info
-        with open(os.path.join(directory, 'feature_info.json'), 'r') as f:
-            self.feature_info = json.load(f)
+            # Load scaler
+            scaler_path = os.path.join(directory, 'scaler.joblib')
+            if not os.path.exists(scaler_path):
+                raise FileNotFoundError(f"Scaler file not found at {scaler_path}")
+            self.scaler = joblib.load(scaler_path)
+            print(f"Scaler loaded from {scaler_path}")
 
-        print("Model and artifacts loaded successfully!")
+            # Load feature info
+            feature_info_path = os.path.join(directory, 'feature_info.json')
+            if not os.path.exists(feature_info_path):
+                raise FileNotFoundError(f"Feature info file not found at {feature_info_path}")
+            with open(feature_info_path, 'r') as f:
+                self.feature_info = json.load(f)
+            print(f"Feature info loaded from {feature_info_path}")
+
+            # Extract feature names and category mappings
+            self.feature_names = self.feature_info['feature_columns']
+            self.category_mappings = self.feature_info.get('category_mappings', {})
+
+            print("Model and artifacts loaded successfully!")
+            return self.model, self.scaler, self.feature_info
+        except Exception as e:
+            print(f"Error loading model and artifacts: {str(e)}")
+            return None, None, None
+
+    def prepare_features(self, data, is_training=False):
+        """Prepare features for model training or prediction"""
+        try:
+            # Convert to DataFrame if dict
+            if isinstance(data, dict):
+                data = pd.DataFrame([data])
+
+            # Convert categorical columns to lowercase
+            categorical_features = [
+                'manufacturer', 'model', 'condition', 'fuel', 'title_status',
+                'transmission', 'drive', 'type', 'paint_color'
+            ]
+            numeric_features = ['year', 'odometer']
+
+            # Fill missing values
+            for col in numeric_features:
+                if col not in data.columns:
+                    data[col] = 50000 if col == 'odometer' else 2020
+                data[col] = data[col].fillna(50000 if col == 'odometer' else 2020)
+
+            for col in categorical_features:
+                if col in data.columns:
+                    data[col] = data[col].str.lower() if data[col].dtype == 'object' else data[col]
+                    data[col] = data[col].fillna('unknown')
+                else:
+                    data[col] = 'unknown'
+
+            # Calculate derived features
+            current_year = datetime.now().year
+            data['age'] = current_year - data['year']
+            data['miles_per_year'] = data['odometer'] / data['age'].replace(0, 1)  # Avoid division by zero
+            data['age_mileage'] = data['age'] * data['miles_per_year']
+
+            # Create dummy variables for categorical features
+            dummy_features = pd.get_dummies(data[categorical_features], prefix=categorical_features)
+
+            # Combine numeric and dummy features
+            numeric_data = data[['year', 'odometer', 'age', 'miles_per_year', 'age_mileage']]
+            features = pd.concat([numeric_data, dummy_features], axis=1)
+
+            # Ensure all features are float type
+            features = features.astype(float)
+
+            print(f"Prepared features shape: {features.shape}")
+            return features
+
+        except Exception as e:
+            print(f"Error preparing features: {str(e)}")
+            raise
 
 def load_and_explore_data():
     """Load and clean the dataset"""
-    # Load data with a reasonable limit  # , nrows=200000
-    df = pd.read_csv('../data/vehicles.csv')
+    # Load data with a reasonable limit
+    df = pd.read_csv('data/vehicles.csv', nrows=200000)
 
     # Keep only relevant columns
     columns_to_keep = ['year', 'manufacturer', 'model', 'condition', 'odometer',
@@ -408,7 +597,7 @@ def prepare_features(data, is_training=True):
             df = pd.DataFrame([data.to_dict()])
 
         # Load feature info
-        with open('../models/feature_info.json', 'r') as f:
+        with open('models/feature_info.json', 'r') as f:
             feature_info = json.load(f)
 
         numeric_features = feature_info['numeric_features']
@@ -441,55 +630,43 @@ def prepare_features(data, is_training=True):
         return features[all_features]
 
 def train_model(X_train, y_train, X_val, y_val):
-    """Train a LightGBM model with early stopping."""
-    train_data = lgb.Dataset(X_train, label=y_train)
-    val_data = lgb.Dataset(X_val, label=y_val, reference=train_data)
-
-    params = {
-        'objective': 'regression',
-        'metric': 'l1',
-        'boosting_type': 'gbdt',
-        'verbose': -1
-    }
-
-    callbacks = [
-        lgb.early_stopping(stopping_rounds=50),
-        lgb.log_evaluation(period=100)
-    ]
-
-    model = lgb.train(
-        params,
-        train_data,
-        num_boost_round=1000,
-        valid_sets=[val_data],
-        callbacks=callbacks
+    """Train a RandomForest model."""
+    model = RandomForestRegressor(
+        n_estimators=100,
+        max_depth=None,
+        min_samples_split=2,
+        min_samples_leaf=1,
+        random_state=42,
+        n_jobs=-1
     )
+
+    model.fit(X_train, y_train)
+    val_score = np.mean(np.abs(model.predict(X_val) - y_val))
+    print(f"Validation MAE: {val_score:.2f}")
 
     return model
 
 def save_model(model, scaler, feature_info):
     """Save the model, scaler, and feature information."""
-    os.makedirs('../models', exist_ok=True)
+    os.makedirs('models', exist_ok=True)
 
-    # Save model
-    model.save_model('../models/model.txt')
+    # Save model using joblib
+    joblib_dump(model, 'models/model.joblib')
 
-    # Save scaler
-    with open('../models/scaler.pkl', 'wb') as f:
-        pickle.dump(scaler, f)
+    # Save scaler using joblib
+    joblib_dump(scaler, 'models/scaler.joblib')
 
     # Save feature information
-    with open('../models/feature_info.json', 'w') as f:
+    with open('models/feature_info.json', 'w') as f:
         json.dump(feature_info, f)
 
 def main():
     """Main function to train and save the model."""
-    # print("Loading and preparing data...")
+    print("Loading and preparing data...")
     df = load_and_explore_data()
 
     print("Engineering features...")
     X, y, feature_info = prepare_features(df, is_training=True)
-    print(feature_info)
 
     print("Splitting data...")
     X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
@@ -504,30 +681,27 @@ def main():
 
     print("Saving model and artifacts...")
     save_model(model, scaler, feature_info)
-    print(feature_info)
 
     # Test prediction
     test_vehicle = {
-        'year': 2015,
-        'manufacturer': 'BMW',
-        'model': '320i',
-        'condition': 'good',
-        'odometer': 122195,
-        'fuel': 'gas',
+        'year': 2020,
+        'manufacturer': 'tesla',
+        'model': 'model 3',
+        'condition': 'excellent',
+        'odometer': 25000,
+        'fuel': 'electric',
         'title_status': 'clean',
         'transmission': 'automatic',
         'drive': 'rwd',
         'type': 'sedan',
-        'paint_color': 'white'
+        'paint_color': 'red'
     }
-
-
 
     X_pred = prepare_features(test_vehicle, is_training=False)
     X_pred_scaled = scaler.transform(X_pred)
     prediction = model.predict(X_pred_scaled)[0]
 
-    print(f"\nPredict price for test vehicle: ${prediction:,.2f}")
+    print(f"\nPredicted price for test vehicle: ${prediction:,.2f}")
 
 if __name__ == "__main__":
     main()
