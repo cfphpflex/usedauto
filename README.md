@@ -7,7 +7,7 @@ Analysis of large used cars dataset from Kaggle to determine key factors influen
 - Help dealerships identify high-quality used cars for quick, profitable sales
 - Provide clear insights on consumer value preferences in used cars
 - Develop accurate price prediction model for market analysis
-
+- Visualization modelcreatetrainpredict.png show model trained  and prediction for sample used car
 ### Quality Criteria
 - Low mileage
 - No accidents
