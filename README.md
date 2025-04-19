@@ -93,21 +93,21 @@ Categorical breakdowns
 
 ## Dependencies
 
---- pandas
---- numpy
---- scikit-learn
---- seaborn
---- matplotlib
---- xgboost
---- catboost
---- joblib
---- optuna
+- pandas
+- numpy
+- scikit-learn
+- seaborn
+- matplotlib
+- xgboost
+- catboost
+- joblib
+- optuna
 
 ## Usage Instructions
 
 ## Step 1: Download dataset to ./data/vehicles.csv from Kaggle
 ## Step 2: Train the model
--- python src/improved_model.py
+- python src/improved_model.py
 ## Step 3: Predict a price
--- python src/predict.py
+- python src/predict.py
 ## Step 4: Launch GUI
