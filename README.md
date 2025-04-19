@@ -111,3 +111,4 @@ Categorical breakdowns
 ## Step 3: Predict a price
 - python src/predict.py
 ## Step 4: Launch GUI
+- python src/gui.py
