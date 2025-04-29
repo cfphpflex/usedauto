@@ -23,6 +23,15 @@ visualizations, a robust model training pipeline, and insights for dealership de
 - High resale price
 - Clean title
 - Fast time-to-sale (if available)
+
+- ## Summary of Findings after interviewing 2 car dealers
+
+**- MOST Important: **Low-mileage, newer cars = higher value and faster sales at the lot
+- Luxury brands show higher resale and depreciation
+- Local trends (e.g., eco-focus in Davis) influence pricing
+
+
+
   
 ## Project Organization
 
@@ -36,19 +45,22 @@ visualizations, a robust model training pipeline, and insights for dealership de
 
 - Dataset: Kaggle - ./data/vehicles.csv
 - Initial features: make, model, year, price, mileage, transmission, location, accident history
+
 Advanced Vehicle Price Prediction Model
-- Missing values handled via median/mode or ML imputer
-- Outliers removed (price < $100 or > $100,000)
-- Feature engineering: car_age, price_per_mile, is_luxury_brand, is_davis
+- Missing values handled via median/mode or ML imputer (additional investigation)
+- Outliers removed (price < $100 or > $100,000) by price and mileage
+- Feature engineering: car_age, price_per_mile, is_luxury_brand, is_davis for regional price adjustment
   
-### 2. Exploratory Data Analysis
+### 2. Analytics Data Analysis
 
 - Visualizations: Price vs. mileage scatter plot, Log-transformed price distribution, Correlation heatmaps,
 Categorical breakdowns
-- Tools: pandas, seaborn, matplotlib
+- Tools: seaborn, matplotlib
 
 ### 3. Modeling Strategy
-
+- Learned In Class:
+--  Data Cleaning (nulls, blanks, outliers exclusion by miles, year, ... price) and exclude luxury brands
+  
 - Base models: RandomForest, XGBoost, CatBoost
 - Meta model: Linear Regression
 - Classification: high_quality = 1
@@ -79,11 +91,6 @@ Categorical breakdowns
 - Popularity score (future)
 - ZIP code median income normalization
   
-## Summary of Findings
-
-- Low-mileage, newer cars = higher value and faster sales
-- Luxury brands show higher resale and depreciation
-- Local trends (e.g., eco-focus in Davis) influence pricing
 
 ## Next Steps
 
