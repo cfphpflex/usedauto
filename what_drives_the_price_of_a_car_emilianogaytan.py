@@ -8,19 +8,17 @@ Original file is located at
 
 ## **Getting started**
 
-# Advanced Vehicle Price Prediction Model
+# Used Car Price Prediction Model
 
 ## Overview
-This project implements an advanced machine learning model for predicting used vehicle prices using RandomForest,  GridSearch... . The model incorporates sophisticated feature engineering, proper data preprocessing, and robust prediction pipelines.
+This Used Car Price Prediction Model implements basic CRISP-DM pipeline and additional advanced techniques, down to regional price adjustment. The model has sophisticated feature engineering, proper data preprocessing, and robust prediction pipelines. Additional advanced ML functioality in training and creating model relies on GridSearch, RandomForest,  ...
 
-## Model Architecture
+##  Architecture
 
 ### 1. Data Preprocessing Pipeline
-The model uses a comprehensive preprocessing pipeline implemented in the `VehiclePricePredictor` class:
+I use a comprehensive preprocessing pipeline implemented in the `VehiclePricePredictor` class:
 """
 
-import warnings
-import pickle
 import pandas as pd
 import numpy as np
 from datetime import datetime
@@ -30,23 +28,27 @@ from sklearn.ensemble import RandomForestRegressor
 from sklearn.metrics import mean_squared_error
 import joblib
 import json
+import warnings
+import pickle
 import os
 from joblib import dump as joblib_dump
+import xgboost as xgb #additional, learning to use my capstone project
 
 warnings.filterwarnings('ignore')
 
 import os
 from google.colab import files
+import zipfile
 
 #file list
 files = os.listdir('/content/')
 print(files)
 
 # upload data csv files, uncomment
-# from google.colab import files
-# uploaded = files.upload()
+from google.colab import files
+uploaded = files.upload()
 
-#load uploaded csv file
+#load &  unzip uploaded csv file
 # cardata = pd.read_csv('/content/vehicles.csv.zip')
 # print(cpn.count())
 import zipfile
@@ -65,6 +67,403 @@ cardata.head()
 # cpn.describe()
 # cpn.info()
 # cpn.isna().sum()
+
+def load_and_explore_data():
+    """load dataset w/ filtering"""
+    print("Loading complete dataset...")
+    # df = pd.read_csv('../data/vehicles.csv')
+
+    import zipfile
+    import pandas as pd
+
+    zip_path = "/content/vehicles.csv.zip"  # Update with your ZIP path
+
+    with zipfile.ZipFile(zip_path, 'r') as zip_ref:
+        file_list = zip_ref.namelist()
+        print("Files in ZIP:", file_list)  # Optional: to view file names
+        with zip_ref.open("vehicles.csv") as f:  # Use correct filename here
+            df = pd.read_csv(f)
+
+
+    print(f"\nInitial records: {len(df)}")
+
+    # Keep only relevant columns
+    columns_to_keep = ['year', 'manufacturer', 'model', 'condition', 'odometer',
+                      'fuel', 'title_status', 'transmission', 'drive', 'type',
+                      'paint_color', 'price']
+    df = df[columns_to_keep]
+
+    # Convert categorical columns to lowercase
+    categorical_cols = ['manufacturer', 'model', 'condition', 'fuel', 'title_status',
+                       'transmission', 'drive', 'type', 'paint_color']
+    for col in categorical_cols:
+        if col in df.columns:
+            df[col] = df[col].str.lower()
+
+    # Initial cleaning
+    df = df.dropna(subset=['price', 'manufacturer', 'model', 'year'])
+    print(f"Records after dropping missing values: {len(df)}")
+
+    # Remove unrealistic prices
+    df = df[
+        (df['price'] > 5000) &  # Remove very low prices
+        (df['price'] < 30000)  # Remove extremely high prices
+    ]
+    print(f"Records after price filtering: {len(df)}")
+
+    # Remove outliers using IQR method for price
+    Q1 = df['price'].quantile(0.25)
+    Q3 = df['price'].quantile(0.75)
+    IQR = Q3 - Q1
+    df = df[
+        (df['price'] >= Q1 - 1.5 * IQR) &
+        (df['price'] <= Q3 + 1.5 * IQR)
+    ]
+    print(f"Records after removing price outliers: {len(df)}")
+
+    # Year filtering
+    current_year = 2024
+    df = df[
+        (df['year'] >= 1990) &  # Remove very old vehicles
+        (df['year'] <= current_year)  # Remove future years
+    ]
+    print(f"Records after year filtering: {len(df)}")
+
+    # Mileage filtering
+    df = df[
+        (df['odometer'] >= 20000) &  # Remove negative mileage
+        (df['odometer'] <= 150000)  # Remove extreme mileage
+    ]
+    print(f"Records after mileage filtering: {len(df)}")
+
+    # Condition filtering
+    valid_conditions = ['excellent', 'good', 'fair', 'like new']
+    df = df[df['condition'].isin(valid_conditions)]
+    print(f"Records after condition filtering: {len(df)}")
+
+    # Title status filtering
+    valid_titles = ['clean', 'rebuilt', 'lien']
+    df = df[df['title_status'].isin(valid_titles)]
+    print(f"Records after title filtering: {len(df)}")
+
+    # Calculate price per mile and remove outliers
+    df['price_per_mile'] = df['price'] / (df['odometer'] + 1)
+    Q1_ppm = df['price_per_mile'].quantile(0.25)
+    Q3_ppm = df['price_per_mile'].quantile(0.75)
+    IQR_ppm = Q3_ppm - Q1_ppm
+    df = df[
+        (df['price_per_mile'] >= Q1_ppm - 1.5 * IQR_ppm) &
+        (df['price_per_mile'] <= Q3_ppm + 1.5 * IQR_ppm)
+    ]
+    df = df.drop('price_per_mile', axis=1)
+    print(f"Records after price/mile filtering: {len(df)}")
+
+    # Fill missing values
+    df['odometer'] = df['odometer'].fillna(df.groupby(['manufacturer', 'model', 'year'])['odometer'].transform('median'))
+    df['odometer'] = df['odometer'].fillna(df.groupby(['manufacturer', 'year'])['odometer'].transform('median'))
+    df['odometer'] = df['odometer'].fillna(df['odometer'].median())
+
+    for col in categorical_cols:
+        if col in df.columns:
+            df[col] = df[col].fillna('unknown')
+
+    # Print final statistics
+    print("\nFinal Dataset Statistics:")
+    print("\nRecords by manufacturer (top 10):")
+    print(df['manufacturer'].value_counts().head(10))
+    print("\nPrice statistics by manufacturer (top 10):")
+    print(df.groupby('manufacturer')['price'].agg(['count', 'mean', 'std', 'min', 'max']).head(10))
+
+    # Save detailed statistics
+    stats_file = 'dataset_statistics.txt'
+    with open(stats_file, 'w') as f:
+        f.write("Dataset Statistics\n")
+        f.write("=================\n\n")
+        f.write(f"Total records: {len(df)}\n\n")
+
+        f.write("Price Statistics by Manufacturer:\n")
+        f.write(df.groupby('manufacturer')['price'].describe().to_string())
+
+        f.write("\n\nPrice Statistics by Year:\n")
+        f.write(df.groupby('year')['price'].describe().to_string())
+
+        f.write("\n\nPrice Statistics by Condition:\n")
+        f.write(df.groupby('condition')['price'].describe().to_string())
+
+        f.write("\n\nMileage Statistics by Year:\n")
+        f.write(df.groupby('year')['odometer'].describe().to_string())
+
+    print(f"\nDetailed statistics saved to {stats_file}")
+
+    return df
+
+def prepare_features(self, data, is_training=False):
+        """Prepare features for model training or prediction"""
+        try:
+            # Convert to DataFrame if dict
+            if isinstance(data, dict):
+                data = pd.DataFrame([data])
+
+            # Convert categorical columns to lowercase
+            categorical_features = [
+                'manufacturer', 'model', 'condition', 'fuel', 'title_status',
+                'transmission', 'drive', 'type', 'paint_color'
+            ]
+            numeric_features = ['year', 'odometer']
+
+            # Fill missing values
+            for col in numeric_features:
+                if col not in data.columns:
+                    data[col] = 50000 if col == 'odometer' else 2020
+                data[col] = data[col].fillna(50000 if col == 'odometer' else 2020)
+
+            for col in categorical_features:
+                if col in data.columns:
+                    data[col] = data[col].str.lower() if data[col].dtype == 'object' else data[col]
+                    data[col] = data[col].fillna('unknown')
+                else:
+                    data[col] = 'unknown'
+
+            # Calculate derived features
+            current_year = datetime.now().year
+            data['age'] = current_year - data['year']
+            data['miles_per_year'] = data['odometer'] / data['age'].replace(0, 1)  # Avoid division by zero
+            data['age_mileage'] = data['age'] * data['miles_per_year']
+
+            # Create dummy variables for categorical features
+            dummy_features = pd.get_dummies(data[categorical_features], prefix=categorical_features)
+
+            # Combine numeric and dummy features
+            numeric_data = data[['year', 'odometer', 'age', 'miles_per_year', 'age_mileage']]
+            features = pd.concat([numeric_data, dummy_features], axis=1)
+
+            # Ensure all features are float type
+            features = features.astype(float)
+
+            print(f"Prepared features shape: {features.shape}")
+            return features
+
+        except Exception as e:
+            print(f"Error preparing features: {str(e)}")
+            raise
+
+def train_model(X_train, y_train, X_val, y_val):
+    """Train an improved XGBoost model with optimized cross-validation"""
+    # Define XGBoost parameters
+    params = {
+        'objective': 'reg:squarederror',
+        'eval_metric': 'mae',
+        'max_depth': 8,           # Reduced from 12 to prevent overfitting
+        'learning_rate': 0.05,    # Slower learning rate for better generalization
+        'n_estimators': 500,      # More trees for better accuracy
+        'min_child_weight': 5,    # Increased to prevent overfitting
+        'subsample': 0.8,         # Random subsampling of training data
+        'colsample_bytree': 0.8,  # Random subsampling of features
+        'reg_alpha': 0.1,         # L1 regularization
+        'reg_lambda': 1.0,        # L2 regularization
+        'random_state': 42
+    }
+
+    # Create DMatrix for XGBoost
+    dtrain = xgb.DMatrix(X_train, label=y_train)
+    dval = xgb.DMatrix(X_val, label=y_val)
+
+    # Perform cross-validation with reduced folds
+    print("Performing cross-validation...")
+    cv_results = xgb.cv(
+        params,
+        dtrain,
+        num_boost_round=params['n_estimators'],
+        nfold=3,  # Reduced from 5 to 3 folds
+        metrics=['mae'],
+        early_stopping_rounds=20,  # Reduced from 50 to 20
+        verbose_eval=10,  # Print progress every 10 rounds
+        seed=42
+    )
+
+    # Get best number of trees from CV
+    best_n_estimators = cv_results.shape[0]
+    params['n_estimators'] = best_n_estimators
+
+    # Train final model
+    print("Training XGBoost model...")
+    model = xgb.train(
+        params,
+        dtrain,
+        num_boost_round=best_n_estimators,
+        evals=[(dtrain, 'train'), (dval, 'val')],
+        verbose_eval=10  # Print progress every 10 rounds
+    )
+
+    # Calculate validation metrics
+    val_pred = model.predict(dval)
+    val_mae = np.mean(np.abs(val_pred - y_val))
+    val_mape = np.mean(np.abs((val_pred - y_val) / y_val)) * 100
+
+    print(f"Cross-validation MAE: ${cv_results['test-mae-mean'].iloc[-1]:,.2f}")
+    print(f"Validation MAE: ${val_mae:,.2f}")
+    print(f"Validation MAPE: {val_mape:.1f}%")
+
+    # Calculate and print R² score
+    r2_score = 1 - np.sum((y_val - val_pred) ** 2) / np.sum((y_val - np.mean(y_val)) ** 2)
+    print(f"Validation R² Score: {r2_score:.3f}")
+
+    # Calculate feature importance using XGBoost's native method
+    try:
+        # Get feature importance scores
+        importance = model.get_score(importance_type='gain')
+
+        # Create DataFrame with feature importance
+        feature_importance = pd.DataFrame({
+            'feature': list(importance.keys()),
+            'importance': list(importance.values())
+        }).sort_values('importance', ascending=False)
+
+        print("\nTop 10 most important features:")
+        print(feature_importance.head(10).to_string())
+
+        # Save feature importance
+        feature_importance.to_csv('feature_importance.csv', index=False)
+        print("\nFeature importance saved to feature_importance.csv")
+    except Exception as e:
+        print(f"\nCould not calculate feature importance: {str(e)}")
+
+    return model
+
+def load(self, directory='models'):
+        """Load the model and artifacts"""
+        try:
+            # Create directory if it doesn't exist
+            os.makedirs(directory, exist_ok=True)
+
+            # Load model
+            model_path = os.path.join(directory, 'model.joblib')
+            if not os.path.exists(model_path):
+                raise FileNotFoundError(f"Model file not found at {model_path}")
+            self.model = joblib.load(model_path)
+            print(f"Model loaded from {model_path}")
+
+            # Load scaler
+            scaler_path = os.path.join(directory, 'scaler.joblib')
+            if not os.path.exists(scaler_path):
+                raise FileNotFoundError(f"Scaler file not found at {scaler_path}")
+            self.scaler = joblib.load(scaler_path)
+            print(f"Scaler loaded from {scaler_path}")
+
+            # Load feature info
+            feature_info_path = os.path.join(directory, 'feature_info.json')
+            if not os.path.exists(feature_info_path):
+                raise FileNotFoundError(f"Feature info file not found at {feature_info_path}")
+            with open(feature_info_path, 'r') as f:
+                self.feature_info = json.load(f)
+            print(f"Feature info loaded from {feature_info_path}")
+
+            # Extract feature names and category mappings
+            self.feature_names = self.feature_info['feature_columns']
+            self.category_mappings = self.feature_info.get('category_mappings', {})
+
+            print("Model and artifacts loaded successfully!")
+            return self.model, self.scaler, self.feature_info
+        except Exception as e:
+            print(f"Error loading model and artifacts: {str(e)}")
+            return None, None, None
+
+def train_model(X_train, y_train, X_val, y_val):
+    """Train a RandomForest model."""
+    model = RandomForestRegressor(
+        n_estimators=100,
+        max_depth=None,
+        min_samples_split=2,
+        min_samples_leaf=1,
+        random_state=42,
+        n_jobs=-1
+    )
+
+    model.fit(X_train, y_train)
+    val_score = np.mean(np.abs(model.predict(X_val) - y_val))
+    print(f"Validation MAE: {val_score:.2f}")
+
+    return model
+
+def analyze_manufacturer_accuracy(model, X_val, y_val, df_val):
+    """Analyze prediction accuracy by manufacturer"""
+    # Get predictions using XGBoost's predict method
+    dval = xgb.DMatrix(X_val)
+    predictions = model.predict(dval)
+
+    # Create a DataFrame with validation data
+    val_df = pd.DataFrame({
+        'manufacturer': df_val['manufacturer'].values,
+        'price': y_val.values,
+        'prediction': predictions
+    })
+
+    # Calculate metrics
+    val_df['error'] = np.abs(val_df['prediction'] - val_df['price'])
+    val_df['error_pct'] = (val_df['error'] / val_df['price']) * 100
+
+    # Group by manufacturer
+    accuracy_by_make = val_df.groupby('manufacturer').agg({
+        'error': 'mean',
+        'error_pct': 'mean',
+        'price': 'count'
+    }).sort_values('error_pct')
+
+    # Rename columns
+    accuracy_by_make.columns = ['MAE', 'MAPE', 'Sample_Size']
+
+    # Format results
+    accuracy_by_make['MAE'] = accuracy_by_make['MAE'].apply(lambda x: f"${x:,.2f}")
+    accuracy_by_make['MAPE'] = accuracy_by_make['MAPE'].apply(lambda x: f"{x:.1f}%")
+
+    print("\nPrediction Accuracy by Manufacturer (Top 10):")
+    print(accuracy_by_make.head(10).to_string())
+
+    return accuracy_by_make
+
+def analyze_mileage_impact(model, X_val, y_val, df_val):
+    """Analyze how mileage affects prediction accuracy with more granular brackets"""
+    # Get predictions using XGBoost's predict method
+    dval = xgb.DMatrix(X_val)
+    predictions = model.predict(dval)
+
+    # Create a DataFrame with validation data
+    val_df = pd.DataFrame({
+        'odometer': df_val['odometer'].values,
+        'price': y_val.values,
+        'prediction': predictions
+    })
+
+    # Calculate error metrics
+    val_df['error'] = np.abs(val_df['prediction'] - val_df['price'])
+    val_df['error_pct'] = (val_df['error'] / val_df['price']) * 100
+
+    # Create more granular mileage bins
+    bins = [0, 10000, 25000, 50000, 75000, 100000, 125000, 150000, 175000, 200000, float('inf')]
+    labels = ['0-10k', '10k-25k', '25k-50k', '50k-75k', '75k-100k',
+              '100k-125k', '125k-150k', '150k-175k', '175k-200k', '200k+']
+    val_df['mileage_bin'] = pd.cut(val_df['odometer'], bins=bins, labels=labels)
+
+    # Group by mileage bin
+    accuracy_by_mileage = val_df.groupby('mileage_bin').agg({
+        'error': 'mean',
+        'error_pct': 'mean',
+        'price': ['count', 'mean', 'std']
+    }).sort_values(('error_pct', 'mean'))
+
+    # Rename columns
+    accuracy_by_mileage.columns = ['MAE', 'MAPE', 'Sample_Size', 'Avg_Price', 'Price_Std']
+
+    # Format results
+    accuracy_by_mileage['MAE'] = accuracy_by_mileage['MAE'].apply(lambda x: f"${x:,.2f}")
+    accuracy_by_mileage['MAPE'] = accuracy_by_mileage['MAPE'].apply(lambda x: f"{x:.1f}%")
+    accuracy_by_mileage['Avg_Price'] = accuracy_by_mileage['Avg_Price'].apply(lambda x: f"${x:,.2f}")
+    accuracy_by_mileage['Price_Std'] = accuracy_by_mileage['Price_Std'].apply(lambda x: f"${x:,.2f}")
+
+    print("\nPrediction Accuracy by Mileage Range (Detailed):")
+    print(accuracy_by_mileage.to_string())
+
+    return accuracy_by_mileage
 
 class VehiclePricePredictor:
     def __init__(self):
@@ -385,186 +784,85 @@ class VehiclePricePredictor:
             print(f"Error preparing features: {str(e)}")
             raise
 
-def load_and_explore_data():
-    """Load and clean the dataset"""
-    # Load data with a reasonable limit
-    import zipfile
-    import pandas as pd
+def test_gui_integration():
+    """Test GUI integration and prediction functionality"""
+    try:
+        import tkinter as tk
+        from gui import VehicleAnalysisGUI
 
-    zip_path = "/content/vehicles.csv.zip"  # Update with your ZIP path
+        # Create root window
+        root = tk.Tk()
+        root.withdraw()  # Hide the main window
 
-    with zipfile.ZipFile(zip_path, 'r') as zip_ref:
-      file_list = zip_ref.namelist()
-      print("Files in ZIP:", file_list)  # Optional: to view file names
-      with zip_ref.open("vehicles.csv") as f:  # Use correct filename here
-          cardata = pd.read_csv(f)
+        # Create predictor instance
+        predictor = VehiclePricePredictor()
+        predictor.load()  # Load the saved model and artifacts
 
-    df = cardata  #pd.read_csv('/content/vehicles.csv.zip', nrows=200000)
+        # Initialize GUI
+        gui = VehicleAnalysisGUI(root)
 
-    # Keep only relevant columns
-    columns_to_keep = ['year', 'manufacturer', 'model', 'condition', 'odometer',
-                      'fuel', 'title_status', 'transmission', 'drive', 'type',
-                      'paint_color', 'price']
-    df = df[columns_to_keep]
+        # Test prediction with different vehicles
+        test_cases = [
+            {
+                'year': 2015,
+                'manufacturer': 'bmw',
+                'model': '320i',
+                'condition': 'good',
+                'odometer': 80000,
+                'fuel': 'gas',
+                'title_status': 'clean',
+                'transmission': 'automatic',
+                'drive': 'rwd',
+                'type': 'sedan',
+                'paint_color': 'white'
+            },
+            {
+                'year': 2018,
+                'manufacturer': 'toyota',
+                'model': 'camry',
+                'condition': 'excellent',
+                'odometer': 40000,
+                'fuel': 'gas',
+                'title_status': 'clean',
+                'transmission': 'automatic',
+                'drive': 'fwd',
+                'type': 'sedan',
+                'paint_color': 'silver'
+            }
+        ]
 
-    # Basic cleaning
-    df = df.dropna(subset=['price'])  # Drop rows with missing prices
-    df = df[(df['price'] >= 100) & (df['price'] <= 100000)]  # Filter price range
+        print("\nTesting GUI predictions:")
+        for vehicle in test_cases:
+            # Use the predictor directly
+            result = predictor.predict(vehicle)
+            print(f"\nVehicle: {vehicle['year']} {vehicle['manufacturer'].upper()} {vehicle['model']}")
+            print(f"Predicted price: ${result['prediction']:,.2f}")
+            print(f"Price range: ${result['confidence_low']:,.2f} - ${result['confidence_high']:,.2f}")
 
-    # Convert categorical columns to lowercase
-    categorical_cols = ['manufacturer', 'model', 'condition', 'fuel', 'title_status',
-                       'transmission', 'drive', 'type', 'paint_color']
-    for col in categorical_cols:
-        if col in df.columns:
-            df[col] = df[col].str.lower()
+        # Clean up
+        root.destroy()
 
-    # Fill missing values
-    df['odometer'] = df['odometer'].fillna(df['odometer'].mean())
-    df['year'] = df['year'].fillna(df['year'].median())
-    for col in categorical_cols:
-        if col in df.columns:
-            df[col] = df[col].fillna('unknown')
-
-    return df
-
-def prepare_features(data, is_training=True):
-    """
-    Prepare features for model training or prediction.
-    Args:
-        data: DataFrame for training or dict/Series for prediction
-        is_training: bool, whether preparing for training or prediction
-    """
-    if is_training:
-        df = data.copy()
-        # Drop rows with missing prices for training data
-        df = df.dropna(subset=['price'])
-
-        # Fill missing values
-        df['odometer'] = df['odometer'].fillna(df['odometer'].mean())
-        df['year'] = df['year'].fillna(df['year'].median())
-
-        numeric_features = ['year', 'odometer']
-        categorical_features = ['manufacturer', 'model', 'condition', 'fuel',
-                              'title_status', 'transmission', 'drive', 'type',
-                              'paint_color']
-
-        # Convert categorical columns to lowercase and fill missing values
-        for col in categorical_features:
-            df[col] = df[col].str.lower()
-            df[col] = df[col].fillna('unknown')
-
-        # Calculate derived features
-        current_year = datetime.now().year
-        df['age'] = current_year - df['year']
-        df['miles_per_year'] = df['odometer'] / df['age'].clip(lower=0.1)
-        df['age_mileage'] = df['age'] * df['odometer']
-
-        numeric_features.extend(['age', 'miles_per_year', 'age_mileage'])
-
-        # Create dummy variables for categorical features
-        dummies = pd.get_dummies(df[categorical_features], prefix=categorical_features)
-
-        # Store category mapping
-        category_mapping = {}
-        for col in categorical_features:
-            category_mapping[col] = df[col].unique().tolist()
-
-        # Combine features
-        features = pd.concat([df[numeric_features], dummies], axis=1)
-
-        # Store feature information
-        feature_info = {
-            'numeric_features': numeric_features,
-            'categorical_features': categorical_features,
-            'category_mapping': category_mapping,
-            'all_features': features.columns.tolist()
-        }
-
-        return features, df['price'], feature_info
-
-    else:
-        # Handle single vehicle prediction
-        if isinstance(data, dict):
-            df = pd.DataFrame([data])
-        else:
-            df = pd.DataFrame([data.to_dict()])
-
-        # Load feature info
-        with open('models/feature_info.json', 'r') as f:
-            feature_info = json.load(f)
-
-        numeric_features = feature_info['numeric_features']
-        categorical_features = feature_info['categorical_features']
-        category_mapping = feature_info['category_mapping']
-        all_features = feature_info['all_features']
-
-        # Convert categorical columns to lowercase
-        for col in categorical_features:
-            df[col] = df[col].str.lower()
-            df[col] = df[col].fillna('unknown')
-
-        # Calculate derived features
-        current_year = datetime.now().year
-        df['age'] = current_year - df['year']
-        df['miles_per_year'] = df['odometer'] / df['age'].clip(lower=0.1)
-        df['age_mileage'] = df['age'] * df['odometer']
-
-        # Create dummy variables
-        dummies = pd.get_dummies(df[categorical_features], prefix=categorical_features)
-
-        # Ensure all training features are present
-        for feature in all_features:
-            if feature not in dummies.columns and feature not in numeric_features:
-                dummies[feature] = 0
-
-        # Combine features
-        features = pd.concat([df[numeric_features], dummies[all_features[len(numeric_features):]]], axis=1)
-
-        return features[all_features]
-
-def train_model(X_train, y_train, X_val, y_val):
-    """Train a RandomForest model."""
-    model = RandomForestRegressor(
-        n_estimators=100,
-        max_depth=None,
-        min_samples_split=2,
-        min_samples_leaf=1,
-        random_state=42,
-        n_jobs=-1
-    )
-
-    model.fit(X_train, y_train)
-    val_score = np.mean(np.abs(model.predict(X_val) - y_val))
-    print(f"Validation MAE: {val_score:.2f}")
-
-    return model
-
-def save_model(model, scaler, feature_info):
-    """Save the model, scaler, and feature information."""
-    os.makedirs('models', exist_ok=True)
-
-    # Save model using joblib
-    joblib_dump(model, 'models/model.joblib')
-
-    # Save scaler using joblib
-    joblib_dump(scaler, 'models/scaler.joblib')
-
-    # Save feature information
-    with open('models/feature_info.json', 'w') as f:
-        json.dump(feature_info, f)
+        print("\nGUI test completed successfully")
+        return True
+    except Exception as e:
+        print(f"GUI test failed: {str(e)}")
+        return False
 
 def main():
     """Main function to train and save the model."""
-    print("Loading and preparing data...")
+    print("load and prep data...")
     df = load_and_explore_data()
 
+    # Create an instance of VehiclePricePredictor
+    predictor = VehiclePricePredictor()
+
     print("Engineering features...")
-    X, y, feature_info = prepare_features(df, is_training=True)
+    X, y, feature_info = predictor.prepare_features(data=df, is_training=True)
 
     print("Splitting data...")
     X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
 
-    print("Scaling features...")
+    print("standardized: Scaling features...")
     scaler = StandardScaler()
     X_train_scaled = scaler.fit_transform(X_train)
     X_test_scaled = scaler.transform(X_test)
@@ -590,7 +888,7 @@ def main():
         'paint_color': 'red'
     }
 
-    X_pred = prepare_features(test_vehicle, is_training=False)
+    X_pred = predictor.prepare_features(data=test_vehicle, is_training=False)
     X_pred_scaled = scaler.transform(X_pred)
     prediction = model.predict(X_pred_scaled)[0]
 
