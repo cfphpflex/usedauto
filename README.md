@@ -1,10 +1,12 @@
 # Advanced Used Vehicle Price Prediction Model
 
-## Project Overview
+## Executive Summary
 
 A data science project analyzing used car listings from Kaggle to predict vehicle prices and identify
-high-quality cars. The model pipleline follows the CRISP-DM methodology and features standard basic data cleaning, standardizing, regression and more advanced models 
-(RandomForest, XGBoost, CatBoost), visual analysis, and deployment scripts. Key deliverables include data visualizations, a robust model training pipeline, and insights for dealership decision-making.
+high-quality cars. The work follows the CRISP-DM methodology and features more advanced models
+(RandomForest, XGBoost, CatBoost), visual analysis, and deployment scripts. 
+Key deliverables include data visualizations, a robust model training pipeline, and insights for dealership decision-making.
+
 
 ## Summary of Findings
 
@@ -17,7 +19,6 @@ high-quality cars. The model pipleline follows the CRISP-DM methodology and feat
 - Scheduled model retraining
 - Integrate real-time pricing data
 - Interactive visual dashboard
-- Have dealers field test it for feedback
 
 
 ## Business Objectives
@@ -75,7 +76,7 @@ Categorical breakdowns
 - Regression: quality_score in [0100]
  
  
-
+  
 ## Lib. Dependencies
 
 --- pandas
