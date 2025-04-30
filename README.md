@@ -3,7 +3,7 @@
 ## Executive Summary
 
 A data science project analyzing used car listings from Kaggle to predict vehicle prices and identify
-high-quality cars. The work follows the CRISP-DM methodology and features more advanced models
+high-quality cars that will sell best at the dealer lot. The work follows the CRISP-DM methodology and features more advanced models
 (RandomForest, XGBoost, CatBoost), visual analysis, and deployment scripts. 
 Key deliverables include data visualizations, a robust model training pipeline, and insights for dealership decision-making.
 
