@@ -3,19 +3,40 @@
 ## Project Overview
 
 A data science project analyzing used car listings from Kaggle to predict vehicle prices and identify
-high-quality cars. The work follows the CRISP-DM methodology and features a stacked ensemble model
-(RandomForest, XGBoost, CatBoost), visual analysis, and deployment scripts. Key deliverables include data
-visualizations, a robust model training pipeline, and insights for dealership decision-making.
+high-quality cars. The model pipleline follows the CRISP-DM methodology and features standard basic data cleaning, standardizing, regression and more advanced models 
+(RandomForest, XGBoost, CatBoost), visual analysis, and deployment scripts. Key deliverables include data visualizations, a robust model training pipeline, and insights for dealership decision-making.
+
+## Summary of Findings
+
+- Low-mileage, newer cars = higher value and faster sales
+- Luxury brands show higher resale and depreciation
+- Local trends (e.g., eco-focus in Davis) influence pricing
+
+## Next Steps
+
+- Scheduled model retraining
+- Integrate real-time pricing data
+- Interactive visual dashboard
+- Have dealers field test it for feedback
+
 
 ## Business Objectives
 
 - Help dealerships identify high-quality used cars for resale
 - Predict used car prices using ML techniques
 - Provide actionable recommendations for used car investments
-- Tailor analysis to specific locales (e.g., Davis, CA)
+- Tailor analysis to specific locales (e.g., Davis, CA) after interviewing two dealers
 
 
-## Quality Criteria for High-Value Cars
+# Model Steps
+- Load and prepare the data
+- Engineer features
+- Train the model
+- Save the model and artifacts
+- Make a test prediction
+
+
+## Quality Criteria for Best-Value Cars
 
 - Low mileage
 - No accidents
@@ -23,15 +44,6 @@ visualizations, a robust model training pipeline, and insights for dealership de
 - High resale price
 - Clean title
 - Fast time-to-sale (if available)
-
-- ## Summary of Findings after interviewing 2 car dealers
-
-**- MOST Important: **Low-mileage, newer cars = higher value and faster sales at the lot
-- Luxury brands show higher resale and depreciation
-- Local trends (e.g., eco-focus in Davis) influence pricing
-
-
-
   
 ## Project Organization
 
@@ -45,77 +57,45 @@ visualizations, a robust model training pipeline, and insights for dealership de
 
 - Dataset: Kaggle - ./data/vehicles.csv
 - Initial features: make, model, year, price, mileage, transmission, location, accident history
-
 Advanced Vehicle Price Prediction Model
-- Missing values handled via median/mode or ML imputer (additional investigation)
-- Outliers removed (price < $100 or > $100,000) by price and mileage
-- Feature engineering: car_age, price_per_mile, is_luxury_brand, is_davis for regional price adjustment
+- Missing values handled via median/mode or ML imputer
+- Outliers removed (price > $5000 or > $50,000)
+- Feature engineering: car_age, price_per_mile, is_luxury_brand, is_davis
   
-### 2. Analytics Data Analysis
+### 2. Exploratory Data Analysis
 
 - Visualizations: Price vs. mileage scatter plot, Log-transformed price distribution, Correlation heatmaps,
 Categorical breakdowns
-- Tools: seaborn, matplotlib
+- Tools: pandas, seaborn, matplotlib
 
 ### 3. Modeling Strategy
-- Learned In Class:
---  Data Cleaning (nulls, blanks, outliers exclusion by miles, year, ... price) and exclude luxury brands
-  
-- Base models: RandomForest, XGBoost, CatBoost
 - Meta model: Linear Regression
+- Base models: RandomForest, XGBoost, CatBoost (new for capstone)
 - Classification: high_quality = 1
 - Regression: quality_score in [0100]
+ 
+ 
 
-### 4. Training Methodology
+## Lib. Dependencies
 
-- StratifiedKFold or GroupKFold
-- Hyperparameter tuning via Optuna
-- Address imbalance using SMOTE or class_weight
-- Metrics: F1, AUC-ROC, RMSE, MAE, R2
+--- pandas
+--- numpy
+--- scikit-learn
+--- seaborn
+--- matplotlib
+--- xgboost
+--- catboost
+--- joblib
+--- optuna
 
-### 5. Deployment
-
-- CLI: python src/improved_model.py
-- Prediction: python src/predict.py
-- GUI: python src/gui.py
-- Artifacts: model.joblib, scaler.pkl, feature_info.json
-- Monitoring (planned): Prometheus/Grafana/Evidently
-
-### 6. Local Customization Davis, CA
-
-- Electric/hybrid flag
-
-
-## Score & Zip Code Customization
-
-- Popularity score (future)
-- ZIP code median income normalization
-  
-
-## Next Steps
-
-- Scheduled model retraining
-- Integrate real-time pricing data
-- Interactive visual dashboard
-
-## Dependencies
-
-- pandas
-- numpy
-- scikit-learn
-- seaborn
-- matplotlib
-- xgboost
-- catboost
-- joblib
-- optuna
-
-## Usage Instructions
+## Run the model Instructions
 
 ## Step 1: Download dataset to ./data/vehicles.csv from Kaggle
 ## Step 2: Train the model
-- python src/improved_model.py
+-- python src/improved_model.py
 ## Step 3: Predict a price
-- python src/predict.py
+-- python src/predict.py
 ## Step 4: Launch GUI
-- python src/gui.py
+-- python src/gui.py
+
+git rm --cached src/models/model.joblib 2>/dev/null || true
